@@ -1,8 +1,9 @@
 """技術書のスクレイピングをします
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from datetime import date, datetime
 from urllib.parse import urljoin
+from csv import writer
 from requests import get
 from requests.exceptions import HTTPError, RequestException
 from bs4 import BeautifulSoup
@@ -33,7 +34,8 @@ def main():
         result: list[Book] = []
         # オライリー
         response = get(OREILLY_BASE_URL, timeout=30)
-        result.append(analyze_oreilly_books(response.text))
+        result.extend(analyze_oreilly_books(response.text))
+        print(f"DONE: {OREILLY_BASE_URL}")
 
         # 翔泳社
         for page in range(1, 501):
@@ -42,7 +44,11 @@ def main():
             if no_shoeisha_items_found(response.text):
                 # ページングがこれ以上見つからなかった場合はbreak
                 break
-            result.append(analyze_shoeisha_books(response.text))
+            result.extend(analyze_shoeisha_books(response.text))
+            print(f"DONE: {url}")
+
+        # CSV出力
+        write_csv(result)
     except HTTPError as http_err:
         print(f"HTTP error occurred: {http_err}")
         exit(1)
@@ -138,6 +144,28 @@ def no_shoeisha_items_found(html_text: str) -> bool:
         soup.find(lambda tag: tag.name == "p" and "該当の書籍は見つかりませんでした。" in tag.get_text())
         is not None
     )
+
+
+def write_csv(books: list[Book]):
+    """CSV出力します
+
+    Args:
+        books (list[Book]): 技術書一覧
+    """
+    csv_header = [f.name for f in fields(Book)]
+    with open("tech-books.csv", "w", encoding="utf-8") as file:
+        csv_writer = writer(file, lineterminator="\n")
+        csv_writer.writerow(csv_header)
+        for book in books:
+            record: list[str] = [
+                book.title,
+                book.isbn,
+                book.price,
+                book.url,
+                book.published_at.strftime("%Y-%m-%d"),
+                book.publisher,
+            ]
+            csv_writer.writerow(record)
 
 
 if __name__ == "__main__":
