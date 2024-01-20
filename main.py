@@ -1,6 +1,7 @@
 """技術書のスクレイピングをします
 """
 from dataclasses import dataclass
+from datetime import date, datetime
 from urllib.parse import urljoin
 from requests import get
 from requests.exceptions import HTTPError, RequestException
@@ -15,7 +16,7 @@ class Book:
     isbn: str
     price: str
     url: str
-    release_date: str
+    published_at: date
     publisher: str
 
 
@@ -66,7 +67,7 @@ def analyze_oreilly_books(html_text: str) -> list[Book]:
         isbn = tr.find("td").text.strip()
         title = tr.find("td", class_="title").get_text(strip=True)
         price = tr.find("td", class_="price").text.strip()
-        release_date = tr.find_all("td")[-1].text.strip()
+        dateStr = tr.find_all("td")[-1].text.strip()
         url = tr.find("a")["href"]
 
         books.append(
@@ -76,7 +77,7 @@ def analyze_oreilly_books(html_text: str) -> list[Book]:
                 price=price,
                 # 相対パスのURLなので変換
                 url=urljoin(OREILLY_BASE_URL, url),
-                release_date=release_date,
+                published_at=datetime.strptime(dateStr, "%Y/%m/%d").date(),
                 publisher="オライリー・ジャパン",
             )
         )
@@ -97,7 +98,7 @@ def analyze_shoeisha_books(html_text: str) -> list[Book]:
     for row in soup.select("#cx_contents_block > div > section > div.row.list"):
         for book_div in row.find_all("div", class_="textWrapper"):
             title = book_div.find("h3").get_text(strip=True)
-            release_date = (
+            dateStr = (
                 book_div.find("dt", string="発売：")
                 .find_next_sibling("dd")
                 .get_text(strip=True)
@@ -113,7 +114,7 @@ def analyze_shoeisha_books(html_text: str) -> list[Book]:
             books.append(
                 Book(
                     title=title,
-                    release_date=release_date,
+                    published_at=datetime.strptime(dateStr, "%Y年%m月%d日").date(),
                     isbn=isbn,
                     price=price,
                     url=urljoin(SHOEISHA_BASE_URL, url),
