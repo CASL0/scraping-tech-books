@@ -75,6 +75,8 @@ def analyze_oreilly_books(html_text: str) -> list[Book]:
         price = tr.find("td", class_="price").text.strip()
         dateStr = tr.find_all("td")[-1].text.strip()
         url = tr.find("a")["href"]
+        # オライリーのページそのままだと文字化けするのでUTF8に直す
+        title = title.encode("iso-8859-1").decode("utf-8", errors="ignore")
 
         books.append(
             Book(
