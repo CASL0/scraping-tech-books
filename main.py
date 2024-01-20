@@ -16,6 +16,7 @@ class Book:
     price: str
     url: str
     release_date: str
+    publisher: str
 
 
 # オライリー書籍一覧ページ
@@ -76,6 +77,7 @@ def analyze_oreilly_books(html_text: str) -> list[Book]:
                 # 相対パスのURLなので変換
                 url=urljoin(OREILLY_BASE_URL, url),
                 release_date=release_date,
+                publisher="オライリー・ジャパン",
             )
         )
     return books
@@ -115,6 +117,7 @@ def analyze_shoeisha_books(html_text: str) -> list[Book]:
                     isbn=isbn,
                     price=price,
                     url=urljoin(SHOEISHA_BASE_URL, url),
+                    publisher="翔泳社",
                 )
             )
     return books
