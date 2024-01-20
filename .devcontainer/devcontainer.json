@@ -1,0 +1,38 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/javascript-node
+{
+  "name": "Scraping Tech Books",
+  "image": "mcr.microsoft.com/devcontainers/python:0-3.11",
+  "features": {},
+  "workspaceMount": "source=${localWorkspaceFolder},target=/usr/local/workspace,type=bind,consistency=delegated",
+  "workspaceFolder": "/usr/local/workspace",
+  "postCreateCommand": "pip install -r requirements.txt",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "streetsidesoftware.code-spell-checker",
+        "ms-python.python",
+        "ms-python.black-formatter",
+        "ms-python.pylint",
+        "esbenp.prettier-vscode",
+        "njpwerner.autodocstring",
+        "oderwat.indent-rainbow"
+      ],
+      "settings": {
+        "editor.tabSize": 2,
+        "editor.formatOnPaste": true,
+        "editor.formatOnSave": true,
+        "editor.formatOnType": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "files.eol": "\n",
+        "files.insertFinalNewline": true,
+        "files.trimFinalNewlines": true,
+        "files.trimTrailingWhitespace": true,
+        "[python]": {
+          "editor.tabSize": 4,
+          "editor.defaultFormatter": "ms-python.black-formatter"
+        }
+      }
+    }
+  }
+}
