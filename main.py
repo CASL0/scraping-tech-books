@@ -27,6 +27,26 @@ OREILLY_BASE_URL = "https://www.oreilly.co.jp/catalog/"
 # 翔泳社書籍一覧ページ
 SHOEISHA_BASE_URL = "https://www.shoeisha.co.jp/"
 
+# 技術評論社書籍一覧ページ
+GIHYO_BASE_URL = "https://gihyo.jp/"
+
+# 技術評論社のカテゴリのクエリパラメーター
+gihyo_category_params: set[str] = {
+    "0602",  # Java
+    "0611",  # JavaScript
+    "0603",  # Python・PHP・Ruby・Perlなど
+    "0601",  # C・C++
+    "0604",  # C#・VB・.NETなど
+    "0605",  # iOS・Androidなど
+    "0612",  # 機械学習・AI・データ分析
+    "0607",  # Webアプリケーション開発
+    "0608",  # SE仕事術・SE読み物
+    "0609",  # 開発技法・ソフトウェアテスト・UML
+    "0701",  # サーバ・インフラ・ネットワーク
+    "0704",  # UNIX・Linux・FreeBSD
+    "0705",  # データベース・SQLなど
+}
+
 
 def main():
     """エントリーポイント"""
@@ -38,7 +58,7 @@ def main():
         print(f"DONE: {OREILLY_BASE_URL}")
 
         # 翔泳社
-        for page in range(1, 501):
+        for page in range(0, 501):
             url = urljoin(SHOEISHA_BASE_URL, f"book/list?p={page}")
             response = get(url, timeout=30)
             if no_shoeisha_items_found(response.text):
@@ -46,6 +66,17 @@ def main():
                 break
             result.extend(analyze_shoeisha_books(response.text))
             print(f"DONE: {url}")
+
+        # 技術評論社
+        for category in gihyo_category_params:
+            for page in range(0, 101):
+                url = urljoin(GIHYO_BASE_URL, f"book/genre?s={category}&page={page}")
+                response = get(url, timeout=30)
+                res = analyze_gihyo_books(response.text)
+                if len(res) == 0:
+                    break
+                result.extend(res)
+                print(f"DONE: {url}")
 
         # CSV出力
         write_csv(result)
@@ -146,6 +177,42 @@ def no_shoeisha_items_found(html_text: str) -> bool:
         soup.find(lambda tag: tag.name == "p" and "該当の書籍は見つかりませんでした。" in tag.get_text())
         is not None
     )
+
+
+def analyze_gihyo_books(html_text: str) -> list[Book]:
+    """技術評論社の発行書籍一覧ページを解析します
+
+    Args:
+        html_text (str): HTMLテキスト
+
+    Returns:
+        list[Book]: 解析した本の一覧
+    """
+    books: list[Book] = []
+    soup = BeautifulSoup(html_text, "html.parser")
+    for row in soup.select("#mainbook > ul.magazineList01.bookList01 > li.clearfix"):
+        title = row.find("h3").find("a").get_text(strip=True)
+        price = row.find("p", class_="price").get_text(strip=True)
+        dateStr = row.find("p", class_="sellingdate").get_text(strip=True)
+
+        # リンクを抽出
+        book_link_tag = row.find("a", href=True)
+        book_link = book_link_tag["href"]
+
+        # ISBN番号をリンクから抽出（URLの最後の部分）
+        isbn = book_link.split("/")[-1]
+
+        books.append(
+            Book(
+                title=title,
+                price=price,
+                published_at=datetime.strptime(dateStr, "%Y年%m月%d日発売").date(),
+                isbn=isbn,
+                url=urljoin(GIHYO_BASE_URL, book_link),
+                publisher="技術評論社",
+            )
+        )
+    return books
 
 
 def write_csv(books: list[Book]):
