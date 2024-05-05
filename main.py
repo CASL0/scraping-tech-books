@@ -30,6 +30,9 @@ SHOEISHA_BASE_URL = "https://www.shoeisha.co.jp/"
 # 技術評論社書籍一覧ページ
 GIHYO_BASE_URL = "https://gihyo.jp/"
 
+# インプレスブックス書籍一覧ページ
+IMPRESS_BASE_URL = "http://book.impress.co.jp/category/"
+
 # 技術評論社のカテゴリのクエリパラメーター
 gihyo_category_params: set[str] = {
     "0602",  # Java
@@ -46,6 +49,8 @@ gihyo_category_params: set[str] = {
     "0704",  # UNIX・Linux・FreeBSD
     "0705",  # データベース・SQLなど
 }
+
+impress_category_params: set[str] = {"program"}
 
 
 def main():
@@ -78,6 +83,13 @@ def main():
                 result.extend(res)
                 print(f"DONE: {url}")
 
+        # インプレス
+        for category in impress_category_params:
+            for page in range(0, 101):
+                url = urljoin(IMPRESS_BASE_URL, category)
+                response = get(url, timeout=30)
+                res = analyze_impress_books(response.text)
+                print(f"DONE: {url}")
         # CSV出力
         write_csv(result)
     except HTTPError as http_err:
@@ -210,6 +222,41 @@ def analyze_gihyo_books(html_text: str) -> list[Book]:
                 isbn=isbn,
                 url=urljoin(GIHYO_BASE_URL, book_link),
                 publisher="技術評論社",
+            )
+        )
+    return books
+
+
+def analyze_impress_books(html_text: str) -> list[Book]:
+    """インプレスブックスの発行書籍一覧ページを解析します
+
+    Args:
+        html_text (str): HTMLテキスト
+
+    Returns:
+        list[Book]: 解析した本の一覧
+    """
+    books: list[Book] = []
+    soup = BeautifulSoup(html_text, "html.parser")
+    for row in soup.select(
+        "div.block-content div.block-book-list.module-img-s div.module-book-list-item-body"
+    ):
+        title = row.find("h4").text.strip()
+        url = row.find("h4").a["href"]
+        isbn = (
+            row.find("p", class_="module-book-isbn").text.replace("ISBN：", "").strip()
+        )
+        dateStr = row.find("p", class_="module-book-sale-date").strip()
+        price = row.find("p", class_="module-book-price").text.strip()
+
+        books.append(
+            Book(
+                title=title,
+                price=price,
+                published_at=datetime.strptime(dateStr, "発売日：%Y/%m/%d").date(),
+                isbn=isbn,
+                url=url,
+                publisher="インプレスブックス",
             )
         )
     return books
