@@ -12,6 +12,7 @@ from requests import get, post
 from requests.exceptions import HTTPError, RequestException
 from bs4 import BeautifulSoup
 from babel.numbers import format_currency
+from stdnum import isbn as isbn_lib
 
 
 @dataclass
@@ -171,7 +172,7 @@ def analyze_shoeisha_books(html_text: str) -> list[Book]:
                     published_at=datetime.strptime(dateStr, "%Y年%m月%d日").replace(
                         tzinfo=timezone(timedelta(hours=9))
                     ),
-                    isbn=isbn,
+                    isbn=isbn_lib.format(isbn),
                     price=format_price(price, r"(\d{1,3}(,\d{3})*)円"),
                     url=urljoin(SHOEISHA_BASE_URL, url),
                     publisher="翔泳社",
@@ -306,7 +307,6 @@ def post_books(url: str, books: list[Book]):
         elif response.status_code != 201:
             print(f"post failed: {response.status_code}")
             print(response.content)
-            break
 
 
 if __name__ == "__main__":
