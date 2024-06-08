@@ -2,11 +2,13 @@
 """
 
 from dataclasses import dataclass, fields
-from datetime import date, datetime
+from datetime import datetime, timezone, timedelta
+import json
 from urllib.parse import urljoin
 from csv import writer
 from re import search as regex_search
-from requests import get
+from argparse import ArgumentParser
+from requests import get, post
 from requests.exceptions import HTTPError, RequestException
 from bs4 import BeautifulSoup
 from babel.numbers import format_currency
@@ -20,7 +22,7 @@ class Book:
     isbn: str
     price: str | None
     url: str
-    published_at: date
+    published_at: datetime
     publisher: str
 
 
@@ -54,6 +56,11 @@ gihyo_category_params: set[str] = {
 def main():
     """エントリーポイント"""
     try:
+        parser = ArgumentParser(
+            description="出版社のサイトから技術書の情報を取得します"
+        )
+        parser.add_argument("-p", "--post", help="POSTする先のURL")
+        args = parser.parse_args()
         result: list[Book] = []
         # オライリー
         response = get(OREILLY_BASE_URL, timeout=30)
@@ -81,8 +88,11 @@ def main():
                 result.extend(res)
                 print(f"DONE: {url}")
 
-        # CSV出力
-        write_csv(result)
+        if args.post is None:
+            # CSV出力
+            write_csv(result)
+        else:
+            post_books(args.post, result)
     except HTTPError as http_err:
         print(f"HTTP error occurred: {http_err}")
         exit(1)
@@ -119,7 +129,9 @@ def analyze_oreilly_books(html_text: str) -> list[Book]:
                 price=format_price(price, r"(\d{1,3}(,\d{3})*)"),
                 # 相対パスのURLなので変換
                 url=urljoin(OREILLY_BASE_URL, url),
-                published_at=datetime.strptime(dateStr, "%Y/%m/%d").date(),
+                published_at=datetime.strptime(dateStr, "%Y/%m/%d").replace(
+                    tzinfo=timezone(timedelta(hours=9))
+                ),
                 publisher="オライリー・ジャパン",
             )
         )
@@ -156,7 +168,9 @@ def analyze_shoeisha_books(html_text: str) -> list[Book]:
             books.append(
                 Book(
                     title=title,
-                    published_at=datetime.strptime(dateStr, "%Y年%m月%d日").date(),
+                    published_at=datetime.strptime(dateStr, "%Y年%m月%d日").replace(
+                        tzinfo=timezone(timedelta(hours=9))
+                    ),
                     isbn=isbn,
                     price=format_price(price, r"(\d{1,3}(,\d{3})*)円"),
                     url=urljoin(SHOEISHA_BASE_URL, url),
@@ -212,7 +226,9 @@ def analyze_gihyo_books(html_text: str) -> list[Book]:
             Book(
                 title=title,
                 price=format_price(price, r"(\d{1,3}(,\d{3})*)円"),
-                published_at=datetime.strptime(dateStr, "%Y年%m月%d日発売").date(),
+                published_at=datetime.strptime(dateStr, "%Y年%m月%d日発売").replace(
+                    tzinfo=timezone(timedelta(hours=9))
+                ),
                 isbn=isbn,
                 url=urljoin(GIHYO_BASE_URL, book_link),
                 publisher="技術評論社",
@@ -260,6 +276,37 @@ def format_price(currency: str, pattern: str) -> str | None:
     else:
         print(f"価格のフォーマットに失敗: {currency}")
     return None
+
+
+def post_books(url: str, books: list[Book]):
+    """技術書データをPOSTします
+
+    Args:
+        url (str): POST先のURL
+        books (list[Book]): POSTする対象の技術書データ
+    """
+    for book in books:
+        response = post(
+            url,
+            data=json.dumps(
+                {
+                    "title": book.title,
+                    "isbn": book.isbn,
+                    "price": book.price,
+                    "url": book.url,
+                    "publisher": book.publisher,
+                    "publishedAt": book.published_at.isoformat(),
+                }
+            ),
+            headers={"Content-Type": "application/json"},
+            timeout=30,
+        )
+        if response.status_code == 409:
+            print("already created")
+        elif response.status_code != 201:
+            print(f"post failed: {response.status_code}")
+            print(response.content)
+            break
 
 
 if __name__ == "__main__":
