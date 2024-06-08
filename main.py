@@ -1,12 +1,15 @@
 """技術書のスクレイピングをします
 """
+
 from dataclasses import dataclass, fields
 from datetime import date, datetime
 from urllib.parse import urljoin
 from csv import writer
+from re import search as regex_search
 from requests import get
 from requests.exceptions import HTTPError, RequestException
 from bs4 import BeautifulSoup
+from babel.numbers import format_currency
 
 
 @dataclass
@@ -15,7 +18,7 @@ class Book:
 
     title: str
     isbn: str
-    price: str
+    price: str | None
     url: str
     published_at: date
     publisher: str
@@ -113,7 +116,7 @@ def analyze_oreilly_books(html_text: str) -> list[Book]:
             Book(
                 title=title,
                 isbn=isbn,
-                price=price,
+                price=format_price(price, r"(\d{1,3}(,\d{3})*)"),
                 # 相対パスのURLなので変換
                 url=urljoin(OREILLY_BASE_URL, url),
                 published_at=datetime.strptime(dateStr, "%Y/%m/%d").date(),
@@ -155,7 +158,7 @@ def analyze_shoeisha_books(html_text: str) -> list[Book]:
                     title=title,
                     published_at=datetime.strptime(dateStr, "%Y年%m月%d日").date(),
                     isbn=isbn,
-                    price=price,
+                    price=format_price(price, r"(\d{1,3}(,\d{3})*)円"),
                     url=urljoin(SHOEISHA_BASE_URL, url),
                     publisher="翔泳社",
                 )
@@ -174,7 +177,10 @@ def no_shoeisha_items_found(html_text: str) -> bool:
     """
     soup = BeautifulSoup(html_text, "html.parser")
     return (
-        soup.find(lambda tag: tag.name == "p" and "該当の書籍は見つかりませんでした。" in tag.get_text())
+        soup.find(
+            lambda tag: tag.name == "p"
+            and "該当の書籍は見つかりませんでした。" in tag.get_text()
+        )
         is not None
     )
 
@@ -205,7 +211,7 @@ def analyze_gihyo_books(html_text: str) -> list[Book]:
         books.append(
             Book(
                 title=title,
-                price=price,
+                price=format_price(price, r"(\d{1,3}(,\d{3})*)円"),
                 published_at=datetime.strptime(dateStr, "%Y年%m月%d日発売").date(),
                 isbn=isbn,
                 url=urljoin(GIHYO_BASE_URL, book_link),
@@ -235,6 +241,25 @@ def write_csv(books: list[Book]):
                 book.publisher,
             ]
             csv_writer.writerow(record)
+
+
+def format_price(currency: str, pattern: str) -> str | None:
+    """価格をフォーマットします
+
+    Args:
+        currency (str): 価格の元の文字列
+        pattern (str): currencyのパターン
+
+    Returns:
+        str | None: 価格情報を抽出出来たらその文字列、それ以外はNone
+    """
+    matched = regex_search(pattern, currency)
+    if matched is not None:
+        formatted_currency = matched.group(1).replace(",", "")
+        return format_currency(int(formatted_currency), "JPY", locale="ja_JP")
+    else:
+        print(f"価格のフォーマットに失敗: {currency}")
+    return None
 
 
 if __name__ == "__main__":
