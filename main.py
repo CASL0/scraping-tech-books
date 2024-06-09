@@ -305,7 +305,7 @@ def post_books(url: str, books: list[Book]):
         if response.status_code == 409:
             print("already created")
         elif response.status_code != 201:
-            print(f"post failed: {response.status_code}")
+            print(f"post {book.title} failed: {response.status_code}")
             print(response.content)
 
 
