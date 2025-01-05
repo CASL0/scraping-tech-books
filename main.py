@@ -8,6 +8,7 @@ from urllib.parse import urljoin
 from csv import writer
 from re import search as regex_search
 from argparse import ArgumentParser
+from sys import exit as sys_exit
 from requests import get, post
 from requests.exceptions import HTTPError, RequestException
 from bs4 import BeautifulSoup
@@ -96,10 +97,10 @@ def main():
             post_books(args.post, result)
     except HTTPError as http_err:
         print(f"HTTP error occurred: {http_err}")
-        exit(1)
+        sys_exit(1)
     except RequestException as req_err:
         print(f"RequestException error occurred: {req_err}")
-        exit(1)
+        sys_exit(1)
 
 
 def analyze_oreilly_books(html_text: str) -> list[Book]:
@@ -114,12 +115,12 @@ def analyze_oreilly_books(html_text: str) -> list[Book]:
     """
     books: list[Book] = []
     soup = BeautifulSoup(html_text, "html.parser")
-    for tr in soup.select("#bookTable > tbody > tr"):
-        isbn = tr.find("td").text.strip()
-        title = tr.find("td", class_="title").get_text(strip=True)
-        price = tr.find("td", class_="price").text.strip()
-        dateStr = tr.find_all("td")[-1].text.strip()
-        url = tr.find("a")["href"]
+    for tr_tag in soup.select("#bookTable > tbody > tr"):
+        isbn = tr_tag.find("td").text.strip()
+        title = tr_tag.find("td", class_="title").get_text(strip=True)
+        price = tr_tag.find("td", class_="price").text.strip()
+        date = tr_tag.find_all("td")[-1].text.strip()
+        url = tr_tag.find("a")["href"]
         # オライリーのページそのままだと文字化けするのでUTF8に直す
         title = title.encode("iso-8859-1").decode("utf-8", errors="ignore")
 
@@ -130,7 +131,7 @@ def analyze_oreilly_books(html_text: str) -> list[Book]:
                 price=format_price(price, r"(\d{1,3}(,\d{3})*)"),
                 # 相対パスのURLなので変換
                 url=urljoin(OREILLY_BASE_URL, url),
-                published_at=datetime.strptime(dateStr, "%Y/%m/%d").replace(
+                published_at=datetime.strptime(date, "%Y/%m/%d").replace(
                     tzinfo=timezone(timedelta(hours=9))
                 ),
                 publisher="オライリー・ジャパン",
@@ -153,7 +154,7 @@ def analyze_shoeisha_books(html_text: str) -> list[Book]:
     for row in soup.select("#cx_contents_block > div > section > div.row.list"):
         for book_div in row.find_all("div", class_="textWrapper"):
             title = book_div.find("h3").get_text(strip=True)
-            dateStr = (
+            date = (
                 book_div.find("dt", string="発売：")
                 .find_next_sibling("dd")
                 .get_text(strip=True)
@@ -169,7 +170,7 @@ def analyze_shoeisha_books(html_text: str) -> list[Book]:
             books.append(
                 Book(
                     title=title,
-                    published_at=datetime.strptime(dateStr, "%Y年%m月%d日").replace(
+                    published_at=datetime.strptime(date, "%Y年%m月%d日").replace(
                         tzinfo=timezone(timedelta(hours=9))
                     ),
                     isbn=isbn_lib.format(isbn),
@@ -214,7 +215,7 @@ def analyze_gihyo_books(html_text: str) -> list[Book]:
     for row in soup.select("#mainbook > ul.magazineList01.bookList01 > li.clearfix"):
         title = row.find("h3").find("a").get_text(strip=True)
         price = row.find("p", class_="price").get_text(strip=True)
-        dateStr = row.find("p", class_="sellingdate").get_text(strip=True)
+        date = row.find("p", class_="sellingdate").get_text(strip=True)
 
         # リンクを抽出
         book_link_tag = row.find("a", href=True)
@@ -227,7 +228,7 @@ def analyze_gihyo_books(html_text: str) -> list[Book]:
             Book(
                 title=title,
                 price=format_price(price, r"(\d{1,3}(,\d{3})*)円"),
-                published_at=datetime.strptime(dateStr, "%Y年%m月%d日発売").replace(
+                published_at=datetime.strptime(date, "%Y年%m月%d日発売").replace(
                     tzinfo=timezone(timedelta(hours=9))
                 ),
                 isbn=isbn,
