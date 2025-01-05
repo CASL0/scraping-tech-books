@@ -275,8 +275,7 @@ def format_price(currency: str, pattern: str) -> str | None:
     if matched is not None:
         formatted_currency = matched.group(1).replace(",", "")
         return format_currency(int(formatted_currency), "JPY", locale="ja_JP")
-    else:
-        print(f"価格のフォーマットに失敗: {currency}")
+    print(f"価格のフォーマットに失敗: {currency}")
     return None
 
 
