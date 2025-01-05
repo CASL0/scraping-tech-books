@@ -16,7 +16,8 @@
         "ms-python.pylint",
         "esbenp.prettier-vscode",
         "njpwerner.autodocstring",
-        "oderwat.indent-rainbow"
+        "oderwat.indent-rainbow",
+        "vivaxy.vscode-conventional-commits"
       ],
       "settings": {
         "editor.tabSize": 2,
