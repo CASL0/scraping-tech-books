@@ -3,7 +3,7 @@ beautifulsoup4==4.13.3
 certifi==2025.1.31
 charset-normalizer==3.4.1
 idna==3.10
-python-stdnum==1.20
+python-stdnum==2.0
 requests==2.32.3
 soupsieve==2.6
 urllib3==2.4.0
